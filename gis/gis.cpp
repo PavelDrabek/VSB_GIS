@@ -157,7 +157,7 @@ void fill_image(const char *filename, cv::Mat & heightmap_8uc1_img, float min_x,
 	int delta_x, delta_y, delta_z;
 	float fx, fy, fz;
 	int x, y, l_type;
-	int stride;
+	int index;
 	int num_points = 0;
 	float range = 0.0f;
 	float *sum_height = NULL;
@@ -168,14 +168,56 @@ void fill_image(const char *filename, cv::Mat & heightmap_8uc1_img, float min_x,
 	delta_y = cvRound(max_y - min_y + 0.5f);
 	delta_z = cvRound(max_z - min_z + 0.5f);
 
-	stride = delta_x;
+	//heightmap_8uc1_img = cv::Mat(delta_y, delta_x, CV_8UC1);
 
-	// naalokujeme pomocna pole, ve kterych budeme ukaladat hodnoty z lidaru
-	// a pocet techto hodnot pro kazdy pixel
+	std::ifstream ifsData(filename, std::ios::binary);
 
-	// projdeme soubor a hodnoty priradime do poli
+	if (!ifsData.is_open()) {
+		std::printf("!!! - Error, cannot open a file %s for reading\n", filename);
+		return;
+	}
 
-	// hodnoty z pomocneho pole priradime do obrazu
+	int count = 0;
+
+	int array_size = delta_x * delta_y;
+	float* sums = (float*)malloc(array_size * sizeof(float));
+	int* counts = (int*)malloc(array_size * sizeof(int));
+
+	for (size_t i = 0; i < array_size; i++)
+	{
+		sums[i] = 0;
+		counts[i] = 0;
+	}
+
+	while (!ifsData.eof())
+	{
+		ifsData.read((char*)(&fx), sizeof(float));
+		ifsData.read((char*)(&fy), sizeof(float));
+		ifsData.read((char*)(&fz), sizeof(float));
+		ifsData.read((char*)(&l_type), sizeof(int));
+
+		x = (int)(fx - min_x);
+		y = (int)(fy - min_y);
+		index = delta_x * y + x;
+
+		sums[index] += ((fz - min_z) / delta_z) * 255;
+		counts[index]++;
+	}
+
+	for (size_t x = 0; x < heightmap_8uc1_img.cols; x++)
+	{
+		for (size_t y = 0; y < heightmap_8uc1_img.rows; y++)
+		{
+			int index = delta_x * y + x;
+			uchar value = 0;
+			if (counts[index] > 0) {
+				float sum = sums[index];
+				int count = counts[index];
+				value = sums[index] / counts[index];
+			}
+			heightmap_8uc1_img.at<uchar>(y, x) = value;
+		}
+	}
 }
 
 
@@ -225,7 +267,6 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 	printf("delta z: %f\n", delta_z);
 
 	// vytvorime obrazky podle informari ze souboru
-	/*
 	heightmap_8uc1_img = cv::Mat( cvSize( cvRound( delta_x + 0.5f ), cvRound( delta_y + 0.5f ) ), CV_8UC1 );
 	heightmap_show_8uc3_img = cv::Mat( cvSize( cvRound( delta_x + 0.5f ), cvRound( delta_y + 0.5f ) ), CV_8UC3 );
 	edgemap_8uc1_img = cv::Mat( cvSize( cvRound( delta_x + 0.5f ), cvRound( delta_y + 0.5f ) ), CV_8UC3 );
@@ -235,14 +276,13 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 
 	cv::setMouseCallback( STEP1_WIN_NAME, mouse_probe_handler, mouse_probe );
 	cv::setMouseCallback( STEP2_WIN_NAME, mouse_probe_handler, mouse_probe );
-	*/
 
 	// naplnime vstupni obraz daty z lidaru
-	//fill_image( bin_filename, heightmap_8uc1_img, min_x, max_x, min_y, max_y, min_z, max_z );
-	//cv::cvtColor( heightmap_8uc1_img, heightmap_show_8uc3_img, CV_GRAY2RGB );
+	fill_image( bin_filename, heightmap_8uc1_img, min_x, max_x, min_y, max_y, min_z, max_z );
+	cv::cvtColor( heightmap_8uc1_img, heightmap_show_8uc3_img, CV_GRAY2RGB );
 
 	// vytvorime obraz hran
-	//make_edges( heightmap_8uc1_img, edgemap_8uc1_img );
+	make_edges( heightmap_8uc1_img, edgemap_8uc1_img );
 
 	// muzeme obraz hran binarizovat, ale v prvni fazi to neni nutne
 	//binarize_image( edgemap_8uc1_img );
@@ -250,17 +290,15 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 
 
 	// zde cekame na klikani uzivatele
-	/*
-	cv::imwrite( img_filename, heightmap_8uc1_img );
-	while ( 1 ) {
-	cv::imshow( STEP1_WIN_NAME, heightmap_show_8uc3_img );
-	cv::imshow( STEP2_WIN_NAME, edgemap_8uc1_img );
-	int key = cv::waitKey( 10 );
-	if ( key == 'q' ) {
-	break;
+	//cv::imwrite( img_filename, heightmap_8uc1_img );
+	while ( true ) {
+		cv::imshow( STEP1_WIN_NAME, heightmap_show_8uc3_img );
+		cv::imshow( STEP2_WIN_NAME, edgemap_8uc1_img );
+		int key = cv::waitKey( 30 );
+		if ( key == 'q' ) {
+			break;
+		}
 	}
-	}
-	*/
 }
 
 
@@ -278,6 +316,5 @@ int main(int argc, char *argv[]) {
 
 	process_lidar(txt_file, bin_file, img_file);
 
-	getchar();
 	return 0;
 }
