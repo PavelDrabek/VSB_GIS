@@ -235,12 +235,50 @@ void binarize_image(cv::Mat & img) {
 
 }
 
+float conv(cv::Mat& edgemap_8uc1_img, int rr, int cc) {
+	float v = 0;
+	for (size_t r = 0; r < 3; r++)
+	{
+		for (size_t c = 0; c < 3; c++)
+		{
+			size_t y = rr + r - 2;
+			size_t x = cc + c - 2;
+			if (x < 0 || x >= edgemap_8uc1_img.rows || y < 0 || y >= edgemap_8uc1_img.cols) {
+				continue;
+			}
+
+			uchar u = edgemap_8uc1_img.at<uchar>(y, x);
+			v += (float)u;
+		}
+	}
+	return v;
+}
 
 /**
 * Provede erozi a dilataci na obraze hran abychom zalepili diry v objektech.
 */
-void erode_and_dilate(cv::Mat & edgemap_8uc1_img) {
+void erode_and_dilate(cv::Mat & edgemap_8uc1_img) 
+{
+	cv::Mat output(edgemap_8uc1_img.size(), edgemap_8uc1_img.type());
+	for (size_t c = 0; c < edgemap_8uc1_img.cols; c++) {
+		for (size_t r = 0; r < edgemap_8uc1_img.rows; r++) {
+			float v = conv(edgemap_8uc1_img, r, c);
 
+			output.at<uchar>(r, c) = (v >= 255) ? 255 : 0;
+		}
+	}
+
+	output.copyTo(edgemap_8uc1_img);
+
+	for (size_t c = 0; c < edgemap_8uc1_img.cols; c++) {
+		for (size_t r = 0; r < edgemap_8uc1_img.rows; r++) {
+			float v = conv(edgemap_8uc1_img, r, c);
+
+			output.at<uchar>(r, c) = (v >= 9 * 255) ? 255 : 0;
+		}
+	}
+
+	output.copyTo(edgemap_8uc1_img);
 }
 
 void process_lidar(const char *txt_filename, const char *bin_filename, const char *img_filename) {
@@ -286,7 +324,7 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 
 	// muzeme obraz hran binarizovat, ale v prvni fazi to neni nutne
 	//binarize_image( edgemap_8uc1_img );
-	//erode_and_dilate( edgemap_8uc1_img );
+	erode_and_dilate( edgemap_8uc1_img );
 
 
 	// zde cekame na klikani uzivatele
