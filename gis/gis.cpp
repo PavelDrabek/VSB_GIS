@@ -60,9 +60,26 @@ void create_windows(const int width, const int height) {
   * dst_img - obraz, do ktereho zaznamename vyplneni
   * value - hodnota, pro kterou provedeme vyplneni
   */
-void fill_step(cv::Mat & edge_8uc1_img, cv::Mat & heightmap_show_8uc3_img, cv::Mat & heightmap_8uc1_img, const int x, const int y, const uchar value) {
+void fill_step(cv::Mat & edge_8uc1_img, cv::Mat & heightmap_show_8uc3_img, cv::Mat & heightmap_8uc1_img, const int x, const int y, const uchar value, const cv::Vec3b color) {
 	int width, height;
 	int z;
+
+	if (x < 0 || x >= edge_8uc1_img.rows || y < 0 || y >= edge_8uc1_img.cols) {
+		return;
+	}
+
+	auto v = edge_8uc1_img.at<uchar>(y, x);
+	if (value != v) {
+		return;
+	}
+
+	heightmap_show_8uc3_img.at<cv::Vec3b>(y, x) = color;
+	edge_8uc1_img.at<uchar>(y, x) = 255; 
+
+	fill_step(edge_8uc1_img, heightmap_show_8uc3_img, heightmap_8uc1_img, x+1, y, 0, color);
+	fill_step(edge_8uc1_img, heightmap_show_8uc3_img, heightmap_8uc1_img, x-1, y, 0, color);
+	fill_step(edge_8uc1_img, heightmap_show_8uc3_img, heightmap_8uc1_img, x, y+1, 0, color);
+	fill_step(edge_8uc1_img, heightmap_show_8uc3_img, heightmap_8uc1_img, x, y-1, 0, color);
 
 } //fill_step
 
@@ -76,6 +93,10 @@ void fill_step(cv::Mat & edge_8uc1_img, cv::Mat & heightmap_show_8uc3_img, cv::M
   */
 void flood_fill(cv::Mat & edge_8uc1_img, cv::Mat & heightmap_show_8uc3_img, cv::Mat & heightmap_8uc1_img, const int x, const int y) {
 	cv::Mat tmp_ff_img;
+
+	cv::Vec3b color(rand() % 255, rand() % 255, rand() % 255);
+	auto edge_copy = edge_8uc1_img.clone();
+	fill_step(edge_copy, heightmap_show_8uc3_img, heightmap_8uc1_img, x, y, 0, color);
 
 } //flood_fill
 
