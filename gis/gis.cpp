@@ -28,6 +28,7 @@ void flood_fill(cv::Mat & src_img, cv::Mat & dst_img, cv::Mat & height_img, cons
 */
 void mouse_probe_handler(int event, int x, int y, int flags, void* param) {
 	MouseProbe *probe = (MouseProbe*)param;
+	std::cout << "mouse click" << std::endl;
 
 	switch (event) {
 
@@ -43,12 +44,9 @@ void mouse_probe_handler(int event, int x, int y, int flags, void* param) {
 }
 
 
-void create_windows(const int width, const int height) {
-	cv::namedWindow(STEP1_WIN_NAME, 0);
-	cv::namedWindow(STEP2_WIN_NAME, 0);
-
-	cv::resizeWindow(STEP1_WIN_NAME, width*ZOOM, height*ZOOM);
-	cv::resizeWindow(STEP2_WIN_NAME, width*ZOOM, height*ZOOM);
+void create_windows(const cv::String name, const int width, const int height) {
+	cv::namedWindow(name, 0);
+	cv::resizeWindow(name, width*ZOOM, height*ZOOM);
 
 } // create_windows
 
@@ -105,7 +103,7 @@ void flood_fill(cv::Mat & edge_8uc1_img, cv::Mat & heightmap_show_8uc3_img, cv::
   * Zjisti minimalni a maximalni souradnice v zadanem souboru.
   * Nezapomente, ze soubor tvori S-JTSK souradnice.
   */
-void get_min_max(const char *filename, float *a_min_x, float *a_max_x, float *a_min_y, float *a_max_y, float *a_min_z, float *a_max_z) {
+void get_min_max(const char *filename, float *a_min_x, float *a_max_x, float *a_min_y, float *a_max_y, float *a_min_z, float *a_max_z, int type) {
 	FILE *f = NULL;
 	float 
 		min_x = FLT_MAX, 
@@ -132,6 +130,10 @@ void get_min_max(const char *filename, float *a_min_x, float *a_max_x, float *a_
 		ifsData.read((char*)(&y), sizeof(float));
 		ifsData.read((char*)(&z), sizeof(float));
 		ifsData.read((char*)(&l_type), sizeof(int));
+
+		if (l_type != type) {
+			continue;
+		}
 
 		if (x < min_x) {
 			min_x = x;
@@ -173,7 +175,7 @@ void get_min_max(const char *filename, float *a_min_x, float *a_max_x, float *a_
 * filename - soubor s binarnimi daty
 * heightmap_8uc1_img - vystupni obrazek
 */
-void fill_image(const char *filename, cv::Mat & heightmap_8uc1_img, float min_x, float max_x, float min_y, float max_y, float min_z, float max_z) {
+void fill_image(const char *filename, cv::Mat & heightmap_8uc1_img, float min_x, float max_x, float min_y, float max_y, float min_z, float max_z, int type) {
 	FILE *f = NULL;
 	int delta_x, delta_y, delta_z;
 	float fx, fy, fz;
@@ -216,6 +218,10 @@ void fill_image(const char *filename, cv::Mat & heightmap_8uc1_img, float min_x,
 		ifsData.read((char*)(&fy), sizeof(float));
 		ifsData.read((char*)(&fz), sizeof(float));
 		ifsData.read((char*)(&l_type), sizeof(int));
+
+		if (l_type != type) {
+			continue;
+		}
 
 		x = (int)(fx - min_x);
 		y = (int)(fy - min_y);
@@ -302,16 +308,17 @@ void erode_and_dilate(cv::Mat & edgemap_8uc1_img)
 	output.copyTo(edgemap_8uc1_img);
 }
 
-void process_lidar(const char *txt_filename, const char *bin_filename, const char *img_filename) {
+cv::Mat show, edge;
+void process_lidar(const char *txt_filename, const char *bin_filename, const char *img_filename, int type) {
 	float min_x, max_x, min_y, max_y, min_z, max_z;
 	float delta_x, delta_y, delta_z;
-	MouseProbe *mouse_probe;
+	//MouseProbe *mouse_probe;
 
 	cv::Mat heightmap_8uc1_img;      // obraz pro vstup lidarovych dat
 	cv::Mat heightmap_show_8uc3_img; // obraz pro kresleni nalezenych ploch
 	cv::Mat edgemap_8uc1_img;        // obraz pro hrany
 
-	get_min_max(bin_filename, &min_x, &max_x, &min_y, &max_y, &min_z, &max_z);
+	get_min_max(bin_filename, &min_x, &max_x, &min_y, &max_y, &min_z, &max_z, type);
 
 	printf("min x: %f, max x: %f\n", min_x, max_x);
 	printf("min y: %f, max y: %f\n", min_y, max_y);
@@ -330,14 +337,14 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 	heightmap_show_8uc3_img = cv::Mat( cvSize( cvRound( delta_x + 0.5f ), cvRound( delta_y + 0.5f ) ), CV_8UC3 );
 	edgemap_8uc1_img = cv::Mat( cvSize( cvRound( delta_x + 0.5f ), cvRound( delta_y + 0.5f ) ), CV_8UC3 );
 
-	create_windows( heightmap_8uc1_img.cols, heightmap_8uc1_img.rows );
-	mouse_probe = new MouseProbe( heightmap_8uc1_img, heightmap_show_8uc3_img, edgemap_8uc1_img );
+	//create_windows( heightmap_8uc1_img.cols, heightmap_8uc1_img.rows );
+	//mouse_probe = new MouseProbe( heightmap_8uc1_img, heightmap_show_8uc3_img, edgemap_8uc1_img );
 
-	cv::setMouseCallback( STEP1_WIN_NAME, mouse_probe_handler, mouse_probe );
-	cv::setMouseCallback( STEP2_WIN_NAME, mouse_probe_handler, mouse_probe );
+	//cv::setMouseCallback( STEP1_WIN_NAME, mouse_probe_handler, mouse_probe );
+	//cv::setMouseCallback( STEP2_WIN_NAME, mouse_probe_handler, mouse_probe );
 
 	// naplnime vstupni obraz daty z lidaru
-	fill_image( bin_filename, heightmap_8uc1_img, min_x, max_x, min_y, max_y, min_z, max_z );
+	fill_image( bin_filename, heightmap_8uc1_img, min_x, max_x, min_y, max_y, min_z, max_z, type );
 	cv::cvtColor( heightmap_8uc1_img, heightmap_show_8uc3_img, CV_GRAY2RGB );
 
 	// vytvorime obraz hran
@@ -347,17 +354,8 @@ void process_lidar(const char *txt_filename, const char *bin_filename, const cha
 	//binarize_image( edgemap_8uc1_img );
 	erode_and_dilate( edgemap_8uc1_img );
 
-
-	// zde cekame na klikani uzivatele
-	//cv::imwrite( img_filename, heightmap_8uc1_img );
-	while ( true ) {
-		cv::imshow( STEP1_WIN_NAME, heightmap_show_8uc3_img );
-		cv::imshow( STEP2_WIN_NAME, edgemap_8uc1_img );
-		int key = cv::waitKey( 30 );
-		if ( key == 'q' ) {
-			break;
-		}
-	}
+	show = heightmap_show_8uc3_img;
+	edge = edgemap_8uc1_img;
 }
 
 
@@ -373,7 +371,35 @@ int main(int argc, char *argv[]) {
 	bin_file = argv[2];
 	img_file = argv[3];
 
-	process_lidar(txt_file, bin_file, img_file);
+	int typeCount = 3;
+
+	std::vector<cv::Mat> heightmaps(typeCount);
+	std::vector<cv::Mat> edgemaps(typeCount);
+	for (size_t i = 0; i < typeCount; i++)
+	{
+		process_lidar(txt_file, bin_file, img_file, i);
+		heightmaps[i] = show.clone();
+		edgemaps[i] = edge.clone();
+
+		create_windows("heightmap_" + std::to_string(i), heightmaps[i].cols, heightmaps[i].rows);
+		create_windows("edgemap_" + std::to_string(i), heightmaps[i].cols, heightmaps[i].rows);
+		MouseProbe* mouse_probe = new MouseProbe(heightmaps[i], heightmaps[i], edgemaps[i]);
+		cv::setMouseCallback("heightmap_" + std::to_string(i), mouse_probe_handler, mouse_probe);
+		cv::setMouseCallback("edgemap_" + std::to_string(i), mouse_probe_handler, mouse_probe);
+	}
+
+	// zde cekame na klikani uzivatele
+	//cv::imwrite( img_filename, heightmap_8uc1_img );
+	while (true) {
+		for (size_t i = 0; i < typeCount; i++) {
+			cv::imshow("heightmap_" + std::to_string(i), heightmaps[i]);
+			cv::imshow("edgemap_" + std::to_string(i), edgemaps[i]);
+		}
+		int key = cv::waitKey(30);
+		if (key == 'q') {
+			break;
+		}
+	}
 
 	return 0;
 }
